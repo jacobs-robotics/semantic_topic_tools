@@ -1,34 +1,51 @@
 #!/usr/bin/env python
 import rospy
+import std_srvs.srv
 from yaml import load, Loader
 
-class RangeChecker(object):
-    
-    def __init__(self, upper_bounds, lower_bounds):
-        self.upper_bounds = upper_bounds
-        self.lower_bounds = lower_bounds
-        rospy.loginfo("Initialized range consistency check with upper bounds %s, lower bounds %s", [self.upper_bounds[b] for b in self.upper_bounds], [self.lower_bounds[b] for b in self.lower_bounds])
-        
-    def check(self, msg):
-        return all(float(getattr(msg,elem)) <= float(self.upper_bounds[elem]) for elem in self.upper_bounds) and all(float(getattr(msg,elem)) >= float(self.lower_bounds[elem]) for elem in self.lower_bounds)
+class Checker(object):
+    def calibrate(self, msg):
+        pass
 
-class DiffChecker(object):
+class RangeChecker(Checker):
     
-    def __init__(self, upper_bounds_diff, lower_bounds_diff):
-        self.upper_bounds_diff = upper_bounds_diff
-        self.lower_bounds_diff = lower_bounds_diff
-        rospy.loginfo("Initialized differential consistency check with upper bounds %s, lower bounds %s", [self.upper_bounds_diff[b] for b in self.upper_bounds_diff], [self.lower_bounds_diff[b] for b in self.lower_bounds_diff])
+    previous_msg = None
+    
+    def __init__(self, standard_values, relative_upper_bounds, relative_lower_bounds):
+        self.standard_values = standard_values
+        self.relative_upper_bounds = relative_upper_bounds
+        self.relative_lower_bounds = relative_lower_bounds
+        rospy.loginfo("Consistency checker: Initialized range check with standard values %s, relative upper bounds %s, relative lower bounds %s", [self.standard_values[b] for b in self.standard_values], [self.relative_upper_bounds[b] for b in self.relative_upper_bounds], [self.relative_lower_bounds[b] for b in self.relative_lower_bounds])
         
     def check(self, msg):
-        try:
-            self.previous_msg
-        except AttributeError:
+        self.previous_msg = msg
+        return all(float(getattr(msg,elem)) <= float(self.relative_upper_bounds[elem]) for elem in self.relative_upper_bounds) and all(float(getattr(msg,elem)) >= float(self.relative_lower_bounds[elem]) for elem in self.relative_lower_bounds)
+        
+    def calibrate(self):
+        for elem in self.standard_values:
+            self.standard_values[elem] = float(getattr(self.previous_msg,elem))     
+        rospy.loginfo("Consistency checker: calibrated on standard values %s.", [self.standard_values[b] for b in self.standard_values])
+
+class DiffChecker(Checker):
+    
+    previous_msg = None
+    
+    def __init__(self, relative_upper_bounds_diff, relative_lower_bounds_diff):
+        self.relative_upper_bounds_diff = relative_upper_bounds_diff
+        self.relative_lower_bounds_diff = relative_lower_bounds_diff
+        rospy.loginfo("Consistency checker: Initialized differential check with relative upper bounds %s, relative lower bounds %s", [self.relative_upper_bounds_diff[b] for b in self.relative_upper_bounds_diff], [self.relative_lower_bounds_diff[b] for b in self.relative_lower_bounds_diff])
+        
+    def check(self, msg):
+        if not self.previous_msg:
             self.previous_msg = msg
-        if all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) <= float(self.upper_bounds_diff[elem]) for elem in self.upper_bounds_diff) and all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) >= float(self.lower_bounds_diff[elem]) for elem in self.lower_bounds_diff):
+        if all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) <= float(self.relative_upper_bounds_diff[elem]) for elem in self.relative_upper_bounds_diff) and all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) >= float(self.relative_lower_bounds_diff[elem]) for elem in self.relative_lower_bounds_diff):
             self.previous_msg = msg
             return True
         else:
             return False
+
+    def calibrate(self):
+        self.previous_msg = None
 
 class ConsistencyChecker(object):
     
@@ -43,12 +60,15 @@ class ConsistencyChecker(object):
         # subscriber and republisher
         rospy.Subscriber(self.config['input_topic'], self.get_class(self.config['message_type']), self.callback)
         self.pub = rospy.Publisher(self.config['output_topic'], self.get_class(self.config['message_type']), queue_size=self.config['queue_size'])
+        
+        # service for calibrating consistency ranges on current values
+        self.calibrate_service = rospy.Service('~calibrate', std_srvs.srv.Empty, self.calibrate)
 
         # different checkers depending on provided configuration
-        if 'upper_bounds' in self.config and 'lower_bounds' in self.config:
-            self.checkers.append(RangeChecker(self.config['upper_bounds'], self.config['lower_bounds']))
-        if 'upper_bounds_diff' in self.config and 'lower_bounds_diff' in self.config:
-            self.checkers.append(DiffChecker(self.config['upper_bounds_diff'], self.config['lower_bounds_diff']))
+        if 'standard_values' in self.config and 'relative_upper_bounds' in self.config and 'relative_lower_bounds' in self.config:
+            self.checkers.append(RangeChecker(self.config['standard_values'], self.config['relative_upper_bounds'], self.config['relative_lower_bounds']))
+        if 'relative_upper_bounds_diff' in self.config and 'relative_lower_bounds_diff' in self.config:
+            self.checkers.append(DiffChecker(self.config['relative_upper_bounds_diff'], self.config['relative_lower_bounds_diff']))
 
     # get class object from given name
     def get_class(self, c):
@@ -65,6 +85,12 @@ class ConsistencyChecker(object):
             self.pub.publish(msg)
         else:
             rospy.logwarn("Consistency checker: check failed for input\n%s", msg)
+            
+    def calibrate(self, req):
+        # check if we have a range checker at all
+        for checker in self.checkers:
+            checker.calibrate()
+        return std_srvs.srv.EmptyResponse()
                
     def run(self):
         while not rospy.is_shutdown():

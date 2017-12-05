@@ -3,20 +3,24 @@ output_topic: "/demo_consistency_out"
 message_type: "geometry_msgs.msg.Point"
 frequency: 10
 queue_size: 10
-upper_bounds:
-  x: 1
-  y: 2
-  z: 3
-lower_bounds:
+standard_values:
   x: 0
-  y: -1
-  z: -2
-upper_bounds_diff:
+  y: 0
+  z: 0
+relative_upper_bounds:
+  x: 0.5
+  y: 0.5
+  z: 0.5
+relative_lower_bounds:
+  x: -0.5
+  y: -0.5
+  z: -0.5
+relative_upper_bounds_diff:
   x: 0.1
-  y: 0.2
-  z: 0.3
-lower_bounds_diff:
-  x: 0.0
+  y: 0.1
+  z: 0.1
+relative_lower_bounds_diff:
+  x: -0.1
   y: -0.1
-  z: -0.2
+  z: -0.1
 
