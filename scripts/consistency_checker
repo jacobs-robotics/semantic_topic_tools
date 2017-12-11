@@ -19,7 +19,8 @@ class RangeChecker(Checker):
         
     def check(self, msg):
         self.previous_msg = msg
-        return all(float(getattr(msg,elem)) <= float(self.relative_upper_bounds[elem]) for elem in self.relative_upper_bounds) and all(float(getattr(msg,elem)) >= float(self.relative_lower_bounds[elem]) for elem in self.relative_lower_bounds)
+        if not all(float(getattr(msg,elem)) <= float(self.relative_upper_bounds[elem]) for elem in self.relative_upper_bounds) and all(float(getattr(msg,elem)) >= float(self.relative_lower_bounds[elem]) for elem in self.relative_lower_bounds):
+            raise ValueError('data out of range')
         
     def calibrate(self):
         if not self.previous_msg == None:
@@ -43,9 +44,8 @@ class DiffChecker(Checker):
             self.previous_msg = msg
         if all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) <= float(self.relative_upper_bounds_diff[elem]) for elem in self.relative_upper_bounds_diff) and all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) >= -float(self.relative_lower_bounds_diff[elem]) for elem in self.relative_lower_bounds_diff):
             self.previous_msg = msg
-            return True
         else:
-            return False
+            raise ValueError('jump in data')
 
     def calibrate(self):
         self.previous_msg = None
@@ -84,10 +84,13 @@ class ConsistencyChecker(object):
 
     # check for consistency using all checkers when receiving message
     def callback(self, msg):
-        if all(checker.check(msg) for checker in self.checkers):
-            self.pub.publish(msg)
+        try:
+            for checker in self.checkers:
+                checker.check(msg)
+        except ValueError as e:
+            rospy.logwarn("Consistency checker: check failed - %s on topic %s for input:\n%s", e.message, self.config['input_topic'], msg)
         else:
-            rospy.logwarn("Consistency checker: check failed for input\n%s", msg)
+            self.pub.publish(msg)
             
     def calibrate(self, req):
         # check if we have a range checker at all
