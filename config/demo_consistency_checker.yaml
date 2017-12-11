@@ -1,8 +1,20 @@
+# add one configuration for each topic to check
+#
+# name: node name for output/debug purposes
+# input_topic: topic where to read from
+# output_topic: topic where to forward checked messages to
+# message_type: ROS type of message to be checked (Python syntax, e.g. "geometry_msgs.msg.Pose")
+# message_field: field name if this is a nested message (e.g. "position" if you want to check geometry_msgs.msg.Pose.position)
+# standard_values: default values, can be adapted to last received values using "~calibrate" service
+# relative_upper_bounds: maximum values (this will be added to standard_values)
+# relative_lower_bounds: minimum values (this will be subtracted to standard_values)
+# relative_bounds_diff: maximum difference from one message to the next one
+
 configurations:
   -
-    name: "demo_consistency"
-    input_topic: "/demo_consistency_in"
-    output_topic: "/demo_consistency_out"
+    name: "demo_consistency_point"
+    input_topic: "/demo_consistency_point_in"
+    output_topic: "/demo_consistency_point_out"
     message_type: "geometry_msgs.msg.Point"
     message_field: ""
     frequency: 10
@@ -24,3 +36,27 @@ configurations:
       y: 0.1
       z: 0.1
 
+  -
+    name: "demo_consistency_pose"
+    input_topic: "/demo_consistency_pose_in"
+    output_topic: "/demo_consistency_pose_out"
+    message_type: "geometry_msgs.msg.Pose"
+    message_field: "position"
+    frequency: 10
+    queue_size: 10
+    standard_values:
+      x: 0
+      y: 0
+      z: 0
+    relative_upper_bounds:
+      x: 0.5
+      y: 0.5
+      z: 0.5
+    relative_lower_bounds:
+      x: 0.5
+      y: 0.5
+      z: 0.5
+    relative_bounds_diff:
+      x: 0.1
+      y: 0.1
+      z: 0.1
