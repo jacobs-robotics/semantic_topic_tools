@@ -41,7 +41,7 @@ class DiffChecker(Checker):
     def check(self, msg):
         if not self.previous_msg:
             self.previous_msg = msg
-        if all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) <= float(self.relative_upper_bounds_diff[elem]) for elem in self.relative_upper_bounds_diff) and all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) >= float(self.relative_lower_bounds_diff[elem]) for elem in self.relative_lower_bounds_diff):
+        if all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) <= float(self.relative_upper_bounds_diff[elem]) for elem in self.relative_upper_bounds_diff) and all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) >= -float(self.relative_lower_bounds_diff[elem]) for elem in self.relative_lower_bounds_diff):
             self.previous_msg = msg
             return True
         else:
