@@ -22,9 +22,12 @@ class RangeChecker(Checker):
         return all(float(getattr(msg,elem)) <= float(self.relative_upper_bounds[elem]) for elem in self.relative_upper_bounds) and all(float(getattr(msg,elem)) >= float(self.relative_lower_bounds[elem]) for elem in self.relative_lower_bounds)
         
     def calibrate(self):
-        for elem in self.standard_values:
-            self.standard_values[elem] = float(getattr(self.previous_msg,elem))     
-        rospy.loginfo("Consistency checker: calibrated on standard values %s.", [self.standard_values[b] for b in self.standard_values])
+        if not self.previous_msg == None:
+            for elem in self.standard_values:
+                    self.standard_values[elem] = float(getattr(self.previous_msg,elem))     
+            rospy.loginfo("Consistency checker: calibrated on standard values %s.", [self.standard_values[b] for b in self.standard_values])
+        else:
+            rospy.logwarn("Consistency checker: Unable to calibrate: No data received yet!")
 
 class DiffChecker(Checker):
     
