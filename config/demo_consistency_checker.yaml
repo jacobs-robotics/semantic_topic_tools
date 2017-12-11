@@ -1,26 +1,26 @@
-input_topic: "/demo_consistency_in"
-output_topic: "/demo_consistency_out"
-message_type: "geometry_msgs.msg.Point"
-frequency: 10
-queue_size: 10
-standard_values:
-  x: 0
-  y: 0
-  z: 0
-relative_upper_bounds:
-  x: 0.5
-  y: 0.5
-  z: 0.5
-relative_lower_bounds:
-  x: -0.5
-  y: -0.5
-  z: -0.5
-relative_upper_bounds_diff:
-  x: 0.1
-  y: 0.1
-  z: 0.1
-relative_lower_bounds_diff:
-  x: -0.1
-  y: -0.1
-  z: -0.1
+configurations:
+  -
+    name: "demo_consistency"
+    input_topic: "/demo_consistency_in"
+    output_topic: "/demo_consistency_out"
+    message_type: "geometry_msgs.msg.Point"
+    message_field: ""
+    frequency: 10
+    queue_size: 10
+    standard_values:
+      x: 0
+      y: 0
+      z: 0
+    relative_upper_bounds:
+      x: 0.5
+      y: 0.5
+      z: 0.5
+    relative_lower_bounds:
+      x: 0.5
+      y: 0.5
+      z: 0.5
+    relative_bounds_diff:
+      x: 0.1
+      y: 0.1
+      z: 0.1
 

@@ -1,77 +1,97 @@
 #!/usr/bin/env python
 import rospy
+import threading
 import std_srvs.srv
 from yaml import load, Loader
 
 class Checker(object):
+    def __init__(self, name, message_field):
+        self.name = name
+        self.message_field = message_field
+    
     def calibrate(self, msg):
         pass
 
+    def getattr_recursive(self, msg, field_name):
+        if len(field_name) == 1:
+            return getattr(msg, field_name[0])
+        else:
+            return self.getattr_recursive(getattr(msg, field_name[0]), field_name[1:])
+
 class RangeChecker(Checker):
     
-    previous_msg = None
-    
-    def __init__(self, standard_values, relative_upper_bounds, relative_lower_bounds):
+    def __init__(self, name, message_field, standard_values, relative_upper_bounds, relative_lower_bounds):
+        super(RangeChecker, self).__init__(name, message_field)
         self.standard_values = standard_values
         self.relative_upper_bounds = relative_upper_bounds
         self.relative_lower_bounds = relative_lower_bounds
-        rospy.loginfo("Consistency checker: Initialized range check with standard values %s, relative upper bounds %s, relative lower bounds %s", [self.standard_values[b] for b in self.standard_values], [self.relative_upper_bounds[b] for b in self.relative_upper_bounds], [self.relative_lower_bounds[b] for b in self.relative_lower_bounds])
+        self.previous_msg = None
+        rospy.loginfo("%s consistency checker: Initialized range check with standard values %s, relative upper bounds %s, relative lower bounds %s", self.name, [self.standard_values[b] for b in self.standard_values], [self.relative_upper_bounds[b] for b in self.relative_upper_bounds], [self.relative_lower_bounds[b] for b in self.relative_lower_bounds])
+        
+    def __str__(self):
+        return str(self.name)+": range check with standard values "+str([self.standard_values[b] for b in self.standard_values])+", relative upper bounds "+str([self.relative_upper_bounds[b] for b in self.relative_upper_bounds])+", relative lower bounds "+str([self.relative_lower_bounds[b] for b in self.relative_lower_bounds])
         
     def check(self, msg):
         self.previous_msg = msg
-        if not all(float(getattr(msg,elem)) <= float(self.relative_upper_bounds[elem]) for elem in self.relative_upper_bounds) and all(float(getattr(msg,elem)) >= float(self.relative_lower_bounds[elem]) for elem in self.relative_lower_bounds):
-            raise ValueError('data out of range')
+        for elem in self.relative_upper_bounds:
+            message_fields = self.message_field.split('.')+[elem] if self.message_field != "" else [elem]
+            if float(self.getattr_recursive(msg,message_fields)) > float(self.standard_values[elem]) + float(self.relative_upper_bounds[elem]):
+                raise ValueError(str(elem)+' data out of range')
+        for elem in self.relative_lower_bounds:
+            message_fields = self.message_field.split('.')+[elem] if self.message_field != "" else [elem]
+            if float(self.getattr_recursive(msg,message_fields)) < float(self.standard_values[elem]) - float(self.relative_lower_bounds[elem]):
+                raise ValueError(str(elem)+' data out of range')
         
     def calibrate(self):
         if not self.previous_msg == None:
             for elem in self.standard_values:
                     self.standard_values[elem] = float(getattr(self.previous_msg,elem))     
-            rospy.loginfo("Consistency checker: calibrated on standard values %s.", [self.standard_values[b] for b in self.standard_values])
+            rospy.loginfo("%s consistency checker: calibrated on standard values %s.", self.name, [self.standard_values[b] for b in self.standard_values])
         else:
-            rospy.logwarn("Consistency checker: Unable to calibrate: No data received yet!")
+            rospy.logwarn("%s onsistency checker: Unable to calibrate: No data received yet!", self.name)
 
 class DiffChecker(Checker):
     
-    previous_msg = None
-    
-    def __init__(self, relative_upper_bounds_diff, relative_lower_bounds_diff):
-        self.relative_upper_bounds_diff = relative_upper_bounds_diff
-        self.relative_lower_bounds_diff = relative_lower_bounds_diff
-        rospy.loginfo("Consistency checker: Initialized differential check with relative upper bounds %s, relative lower bounds %s", [self.relative_upper_bounds_diff[b] for b in self.relative_upper_bounds_diff], [self.relative_lower_bounds_diff[b] for b in self.relative_lower_bounds_diff])
+    def __init__(self, name, message_field, relative_bounds_diff):
+        super(DiffChecker, self).__init__(name, message_field)
+        self.relative_bounds_diff = relative_bounds_diff
+        self.previous_msg = None
+        rospy.loginfo("%s consistency checker: Initialized differential check with relative bounds %s", self.name, [self.relative_bounds_diff[b] for b in self.relative_bounds_diff])
+
+    def __str__(self):
+        return str(self.name)+": diff check with relative bounds "+str([self.relative_bounds_diff[b] for b in self.relative_bounds_diff])
         
     def check(self, msg):
         if not self.previous_msg:
             self.previous_msg = msg
-        if all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) <= float(self.relative_upper_bounds_diff[elem]) for elem in self.relative_upper_bounds_diff) and all(abs(float(getattr(msg,elem)) - float(getattr(self.previous_msg,elem))) >= -float(self.relative_lower_bounds_diff[elem]) for elem in self.relative_lower_bounds_diff):
-            self.previous_msg = msg
-        else:
-            raise ValueError('jump in data')
+        for elem in self.relative_bounds_diff:
+            message_fields = self.message_field.split('.')+[elem] if self.message_field != "" else [elem]
+            if abs(float(self.getattr_recursive(msg,message_fields)) - float(self.getattr_recursive(self.previous_msg,message_fields))) > float(self.relative_bounds_diff[elem]):
+                raise ValueError(str(elem)+' data jumped')
+        self.previous_msg = msg
 
     def calibrate(self):
         self.previous_msg = None
 
-class ConsistencyChecker(object):
+class ConsistencyChecker(threading.Thread):
     
-    checkers = []
-    
-    def __init__(self):
-        
-        # load configuration
-        config_filename = rospy.get_param('~config_filename')
-        self.config = load(file(config_filename, 'r'), Loader=Loader)
+    def __init__(self, config):
+        threading.Thread.__init__(self)
+        self.config = config
+        self.checkers = []
         
         # subscriber and republisher
-        rospy.Subscriber(self.config['input_topic'], self.get_class(self.config['message_type']), self.callback)
-        self.pub = rospy.Publisher(self.config['output_topic'], self.get_class(self.config['message_type']), queue_size=self.config['queue_size'])
+        rospy.Subscriber(config['input_topic'], self.get_class(config['message_type']), self.callback)
+        self.pub = rospy.Publisher(config['output_topic'], self.get_class(config['message_type']), queue_size=config['queue_size'])
         
         # service for calibrating consistency ranges on current values
-        self.calibrate_service = rospy.Service('~calibrate', std_srvs.srv.Empty, self.calibrate)
+        self.calibrate_service = rospy.Service(str('~calibrate_'+config['name']), std_srvs.srv.Empty, self.calibrate)
 
         # different checkers depending on provided configuration
-        if 'standard_values' in self.config and 'relative_upper_bounds' in self.config and 'relative_lower_bounds' in self.config:
-            self.checkers.append(RangeChecker(self.config['standard_values'], self.config['relative_upper_bounds'], self.config['relative_lower_bounds']))
-        if 'relative_upper_bounds_diff' in self.config and 'relative_lower_bounds_diff' in self.config:
-            self.checkers.append(DiffChecker(self.config['relative_upper_bounds_diff'], self.config['relative_lower_bounds_diff']))
+        if 'standard_values' in config and 'relative_upper_bounds' in config and 'relative_lower_bounds' in config:
+            self.checkers.append(RangeChecker(config['name'], config['message_field'], config['standard_values'], config['relative_upper_bounds'], config['relative_lower_bounds']))
+        if 'relative_bounds_diff' in config:
+            self.checkers.append(DiffChecker(config['name'], config['message_field'], config['relative_bounds_diff']))
 
     # get class object from given name
     def get_class(self, c):
@@ -88,7 +108,7 @@ class ConsistencyChecker(object):
             for checker in self.checkers:
                 checker.check(msg)
         except ValueError as e:
-            rospy.logwarn("Consistency checker: check failed - %s on topic %s for input:\n%s", e.message, self.config['input_topic'], msg)
+            rospy.logwarn("%s consistency checker: check failed - %s on topic %s for input:\n%s", self.config['name'], e.message, self.config['input_topic'], msg)
         else:
             self.pub.publish(msg)
             
@@ -105,6 +125,12 @@ class ConsistencyChecker(object):
 if __name__ == '__main__':
     try:
         rospy.init_node('consistency_checker')
-        ConsistencyChecker().run()
+
+        # load configuration
+        config_filename = rospy.get_param('~config_filename')
+        config = load(file(config_filename, 'r'), Loader=Loader)
+        for config in config['configurations']:
+            thread = ConsistencyChecker(config)
+            thread.start()
     except rospy.ROSInterruptException:
         pass
