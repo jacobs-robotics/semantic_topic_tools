@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+    
+    <arg name="config_filename" default="$(find semantic_topic_tools)/config/demo_remapper.yaml"/>
+  
+    <node pkg="semantic_topic_tools" type="remapper" name="demo_remapper" output="screen" >
+        <param name="config_filename" type="str" value="$(arg config_filename)" />
+    </node>
+    
+</launch>

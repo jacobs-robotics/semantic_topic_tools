@@ -1,0 +1,90 @@
+#!/usr/bin/env python
+import rospy
+import threading
+import std_srvs.srv
+from yaml import load, Loader
+
+class Remapper(object):
+    def __init__(self, name, message_field):
+        self.name = name
+        self.message_field = message_field
+    
+    def getattr_recursive(self, msg, field_name):
+        if len(field_name) == 1:
+            return getattr(msg, field_name[0])
+        else:
+            return self.getattr_recursive(getattr(msg, field_name[0]), field_name[1:])
+            
+    def setattr_recursive(self, msg, field_name, value):
+        if len(field_name) == 1:
+            return setattr(msg, field_name[0], value)
+        else:
+            return self.setattr_recursive(getattr(msg, field_name[0]), field_name[1:], value)
+
+class EqualsRemapper(Remapper):
+    
+    def __init__(self, name, message_field, values_in, values_out):
+        super(EqualsRemapper, self).__init__(name, message_field)
+        self.values_in = values_in
+        self.values_out = values_out
+        rospy.loginfo("%s remapper: Initialized equality remapper with in values %s, out values %s", self.name, [self.values_in[b] for b in self.values_in], [self.values_out[b] for b in self.values_out])
+        
+    def __str__(self):
+        return str(self.name)+": equality remap with in values "+str([self.values_in[b] for b in self.values_in])+", out values "+str([self.values_out[b] for b in self.values_out])
+        
+    def remap(self, msg):
+        for elem in self.values_in:
+            message_fields = self.message_field.split('.')+[elem] if self.message_field != "" else [elem]
+            if self.getattr_recursive(msg,message_fields) == self.values_in[elem]:
+                self.setattr_recursive(msg, message_fields, self.values_out[elem])
+        
+class SemanticRemapper(threading.Thread):
+    
+    def __init__(self, config):
+        threading.Thread.__init__(self)
+        self.config = config
+        self.remappers = []
+        
+        # subscriber and republisher
+        rospy.Subscriber(config['input_topic'], self.get_class(config['message_type']), self.callback)
+        self.pub = rospy.Publisher(config['output_topic'], self.get_class(config['message_type']), queue_size=config['queue_size'])
+        
+        # different remappers depending on provided configuration
+        if 'values_in' in config:
+            self.remappers.append(EqualsRemapper(config['name'], config['message_field'], config['values_in'], config['values_out']))
+
+    # get class object from given name
+    def get_class(self, c):
+        parts = c.split('.')
+        module = ".".join(parts[:-1])
+        m = __import__( module )
+        for comp in parts[1:]:
+            m = getattr(m, comp)            
+        return m
+
+    # remap using all remappers when receiving message
+    def callback(self, msg):
+        try:
+            for remapper in self.remappers:
+                remapper.remap(msg)
+        except ValueError as e:
+            rospy.logwarn("%s remapper: remapping failed - %s on topic %s for input:\n%s", self.config['name'], e.message, self.config['input_topic'], msg)
+        else:
+            self.pub.publish(msg)
+            
+    def run(self):
+        while not rospy.is_shutdown():
+            rospy.Rate(self.config['frequency']).sleep
+        
+if __name__ == '__main__':
+    try:
+        rospy.init_node('remapper')
+
+        # load configuration
+        config_filename = rospy.get_param('~config_filename')
+        config = load(file(config_filename, 'r'), Loader=Loader)
+        for config in config['configurations']:
+            thread = SemanticRemapper(config)
+            thread.start()
+    except rospy.ROSInterruptException:
+        pass
