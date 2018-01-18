@@ -104,6 +104,7 @@ if __name__ == '__main__':
         config = load(file(config_filename, 'r'), Loader=Loader)
         for config in config['configurations']:
             thread = SemanticRemapper(config)
+            thread.daemon = True
             thread.start()
         rospy.spin()
     except rospy.ROSInterruptException:
