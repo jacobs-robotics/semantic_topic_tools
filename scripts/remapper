@@ -5,9 +5,12 @@ import std_srvs.srv
 from yaml import load, Loader
 
 class Remapper(object):
-    def __init__(self, name, message_field):
+    def __init__(self, name, message_field, values_in, values_out):
         self.name = name
         self.message_field = message_field
+        self.values_in = values_in
+        self.values_out = values_out
+        rospy.loginfo("Initialized %s", self)
     
     def getattr_recursive(self, msg, field_name):
         if len(field_name) == 1:
@@ -24,13 +27,10 @@ class Remapper(object):
 class EqualsRemapper(Remapper):
     
     def __init__(self, name, message_field, values_in, values_out):
-        super(EqualsRemapper, self).__init__(name, message_field)
-        self.values_in = values_in
-        self.values_out = values_out
-        rospy.loginfo("%s remapper: Initialized equality remapper with in values %s, out values %s", self.name, [self.values_in[b] for b in self.values_in], [self.values_out[b] for b in self.values_out])
+        super(EqualsRemapper, self).__init__(name, message_field, values_in, values_out)
         
     def __str__(self):
-        return str(self.name)+": equality remap with in values "+str([self.values_in[b] for b in self.values_in])+", out values "+str([self.values_out[b] for b in self.values_out])
+        return str(self.name)+": equality remapper for fields "+str([b for b in self.values_in])+", in values "+str([self.values_in[b] for b in self.values_in])+", out values "+str([self.values_out[b] for b in self.values_out])
         
     def remap(self, msg):
         for elem in self.values_in:
@@ -41,13 +41,10 @@ class EqualsRemapper(Remapper):
 class BlindRemapper(Remapper):
     
     def __init__(self, name, message_field, values_in, values_out):
-        super(BlindRemapper, self).__init__(name, message_field)
-        self.values_in = values_in
-        self.values_out = values_out
-        rospy.loginfo("%s remapper: Initialized blind remapper with in values %s, out values %s", self.name, [self.values_in[b] for b in self.values_in], [self.values_out[b] for b in self.values_out])
+        super(BlindRemapper, self).__init__(name, message_field, values_in, values_out)
         
     def __str__(self):
-        return str(self.name)+": equality remap with in values "+str([self.values_in[b] for b in self.values_in])+", out values "+str([self.values_out[b] for b in self.values_out])
+        return str(self.name)+": blind remapper for fields "+str([b for b in self.values_in])+", out values "+str([self.values_out[b] for b in self.values_out])
         
     def remap(self, msg):
         for elem in self.values_in:

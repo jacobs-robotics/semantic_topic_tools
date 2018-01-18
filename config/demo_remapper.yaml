@@ -6,7 +6,7 @@
 # message_type: ROS type of message to be remapped (Python syntax, e.g. "geometry_msgs.msg.Pose")
 # message_field: field name if this is a nested message (e.g. "position" if you want to remap geometry_msgs.msg.Pose.position)
 # match_values: true if the value in "values_in" has to be matched to remap, false if remapping should be done regardless of values in "values_in" fields
-# values_in: combination of field name and value to be remapped
+# values_in: combination of field name and value to be remapped (value will be ignored if match_values = false)
 # values_out: combination of field name and value which should be output instead of the input value
 
 configurations:
