@@ -93,8 +93,7 @@ class SemanticRemapper(threading.Thread):
             self.pub.publish(msg)
             
     def run(self):
-        while not rospy.is_shutdown():
-            rospy.Rate(self.config['frequency']).sleep
+        rospy.spin()
         
 if __name__ == '__main__':
     try:
@@ -106,5 +105,6 @@ if __name__ == '__main__':
         for config in config['configurations']:
             thread = SemanticRemapper(config)
             thread.start()
+        rospy.spin()
     except rospy.ROSInterruptException:
         pass

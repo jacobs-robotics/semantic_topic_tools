@@ -16,9 +16,8 @@ configurations:
     output_topic: "/demo_remap_pose_out"
     message_type: "geometry_msgs.msg.PoseStamped"
     message_field: "header"
-    frequency: 10
     queue_size: 10
-    match_values: false
+    match_values: true
     values_in:
       frame_id: "frame_in"
     values_out:

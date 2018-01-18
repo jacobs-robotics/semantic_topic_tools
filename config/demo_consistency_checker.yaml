@@ -17,7 +17,6 @@ configurations:
     output_topic: "/demo_consistency_point_out"
     message_type: "geometry_msgs.msg.Point"
     message_field: ""
-    frequency: 10
     queue_size: 10
     standard_values:
       x: 0
@@ -42,7 +41,6 @@ configurations:
     output_topic: "/demo_consistency_pose_out"
     message_type: "geometry_msgs.msg.Pose"
     message_field: "position"
-    frequency: 10
     queue_size: 10
     standard_values:
       x: 0

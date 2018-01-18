@@ -119,8 +119,7 @@ class ConsistencyChecker(threading.Thread):
         return std_srvs.srv.EmptyResponse()
                
     def run(self):
-        while not rospy.is_shutdown():
-            rospy.Rate(self.config['frequency']).sleep
+        rospy.spin()
         
 if __name__ == '__main__':
     try:
@@ -132,5 +131,6 @@ if __name__ == '__main__':
         for config in config['configurations']:
             thread = ConsistencyChecker(config)
             thread.start()
+        rospy.spin()
     except rospy.ROSInterruptException:
         pass
