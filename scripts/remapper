@@ -23,11 +23,10 @@ class Remapper(object):
 
 class EqualsRemapper(Remapper):
     
-    def __init__(self, name, message_field, values_in, values_out,override_match):
+    def __init__(self, name, message_field, values_in, values_out):
         super(EqualsRemapper, self).__init__(name, message_field)
         self.values_in = values_in
         self.values_out = values_out
-        self.override_match = override_match
         rospy.loginfo("%s remapper: Initialized equality remapper with in values %s, out values %s", self.name, [self.values_in[b] for b in self.values_in], [self.values_out[b] for b in self.values_out])
         
     def __str__(self):
@@ -36,11 +35,25 @@ class EqualsRemapper(Remapper):
     def remap(self, msg):
         for elem in self.values_in:
             message_fields = self.message_field.split('.')+[elem] if self.message_field != "" else [elem]
-            if self.override_match:
-                self.setattr_recursive(msg, message_fields, self.values_out[elem])
-            elif self.getattr_recursive(msg,message_fields) == self.values_in[elem]:
+            if self.getattr_recursive(msg,message_fields) == self.values_in[elem]:
                 self.setattr_recursive(msg, message_fields, self.values_out[elem])
                 
+class BlindRemapper(Remapper):
+    
+    def __init__(self, name, message_field, values_in, values_out):
+        super(BlindRemapper, self).__init__(name, message_field)
+        self.values_in = values_in
+        self.values_out = values_out
+        rospy.loginfo("%s remapper: Initialized blind remapper with in values %s, out values %s", self.name, [self.values_in[b] for b in self.values_in], [self.values_out[b] for b in self.values_out])
+        
+    def __str__(self):
+        return str(self.name)+": equality remap with in values "+str([self.values_in[b] for b in self.values_in])+", out values "+str([self.values_out[b] for b in self.values_out])
+        
+    def remap(self, msg):
+        for elem in self.values_in:
+            message_fields = self.message_field.split('.')+[elem] if self.message_field != "" else [elem]
+            self.setattr_recursive(msg, message_fields, self.values_out[elem])
+
         
 class SemanticRemapper(threading.Thread):
     
@@ -55,7 +68,10 @@ class SemanticRemapper(threading.Thread):
         
         # different remappers depending on provided configuration
         if 'values_in' in config:
-            self.remappers.append(EqualsRemapper(config['name'], config['message_field'], config['values_in'], config['values_out'], config['override_match']))
+            if config['match_values']:
+                self.remappers.append(EqualsRemapper(config['name'], config['message_field'], config['values_in'], config['values_out']))
+            else:
+                self.remappers.append(BlindRemapper(config['name'], config['message_field'], config['values_in'], config['values_out']))
 
     # get class object from given name
     def get_class(self, c):
