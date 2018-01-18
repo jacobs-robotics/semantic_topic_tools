@@ -1,24 +1,58 @@
 # add one configuration for each topic to remap
 #
 # name: node name for output/debug purposes
+# mode:
+#    "fixed" -> remap field no matter what it contains in the input message
+#    "match" -> remap field if its value matches "values_in"
+#    "expression" -> remap field according to this expression, e.g. "*10" multiplies a float by 10, "[5:]" returns the [5:] substring of a string
 # input_topic: topic where to read from
 # output_topic: topic where to forward remapped messages to
 # message_type: ROS type of message to be remapped (Python syntax, e.g. "geometry_msgs.msg.Pose")
 # message_field: field name if this is a nested message (e.g. "position" if you want to remap geometry_msgs.msg.Pose.position)
-# match_values: true if the value in "values_in" has to be matched to remap, false if remapping should be done regardless of values in "values_in" fields
-# values_in: combination of field name and value to be remapped (value will be ignored if match_values = false)
+# values_in: combination of field name and value to be remapped , only required for "match" mode
 # values_out: combination of field name and value which should be output instead of the input value
 
 configurations:
   -
-    name: "demo_remap_pose"
-    input_topic: "/demo_remap_pose_in"
-    output_topic: "/demo_remap_pose_out"
+    name: "demo_remap_frame_id_fixed"
+    mode: "fixed"
+    input_topic: "/demo_remap_frame_id_fixed_in"
+    output_topic: "/demo_remap_frame_id_fixed_out"
     message_type: "geometry_msgs.msg.PoseStamped"
     message_field: "header"
     queue_size: 10
-    match_values: true
+    values_out:
+      frame_id: "frame_out"
+  -
+    name: "demo_remap_frame_id_match"
+    mode: "match"
+    input_topic: "/demo_remap_frame_id_match_in"
+    output_topic: "/demo_remap_frame_id_match_out"
+    message_type: "geometry_msgs.msg.PoseStamped"
+    message_field: "header"
+    queue_size: 10
     values_in:
       frame_id: "frame_in"
     values_out:
       frame_id: "frame_out"
+  -
+    name: "demo_remap_pose_float"
+    mode: "expression"
+    input_topic: "/demo_remap_pose_float_in"
+    output_topic: "/demo_remap_pose_float_out"
+    message_type: "geometry_msgs.msg.PoseStamped"
+    message_field: "pose.position"
+    queue_size: 10
+    values_out:
+      x: "*10"
+      y: "/2"
+  -
+    name: "demo_remap_pose_string"
+    mode: "expression"
+    input_topic: "/demo_remap_pose_string_in"
+    output_topic: "/demo_remap_pose_string_out"
+    message_type: "geometry_msgs.msg.PoseStamped"
+    message_field: "header"
+    queue_size: 10
+    values_out:
+      frame_id: "[5:]"
