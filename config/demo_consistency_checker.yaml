@@ -9,6 +9,7 @@
 # relative_upper_bounds: maximum values (this will be added to standard_values)
 # relative_lower_bounds: minimum values (this will be subtracted to standard_values)
 # relative_bounds_diff: maximum difference from one message to the next one
+# relative_bounds_time_threshold: if present, disregard jumps outside the relative_bounds_diff which occur after the specified time (in seconds)
 
 configurations:
   -
@@ -34,6 +35,7 @@ configurations:
       x: 0.1
       y: 0.1
       z: 0.1
+    relative_bounds_time_threshold: 10
 
   -
     name: "demo_consistency_pose"

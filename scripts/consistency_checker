@@ -52,10 +52,12 @@ class RangeChecker(Checker):
 
 class DiffChecker(Checker):
     
-    def __init__(self, name, message_field, relative_bounds_diff):
+    def __init__(self, name, message_field, relative_bounds_diff, relative_bounds_time_threshold=float('Inf')):
         super(DiffChecker, self).__init__(name, message_field)
         self.relative_bounds_diff = relative_bounds_diff
+        self.relative_bounds_time_threshold = relative_bounds_time_threshold
         self.previous_msg = None
+        self.previous_msg_time = rospy.Time.now()
         rospy.loginfo("%s consistency checker: Initialized differential check with relative bounds %s", self.name, [self.relative_bounds_diff[b] for b in self.relative_bounds_diff])
 
     def __str__(self):
@@ -64,11 +66,15 @@ class DiffChecker(Checker):
     def check(self, msg):
         if not self.previous_msg:
             self.previous_msg = msg
-        for elem in self.relative_bounds_diff:
-            message_fields = self.message_field.split('.')+[elem] if self.message_field != "" else [elem]
-            if abs(float(self.getattr_recursive(msg,message_fields)) - float(self.getattr_recursive(self.previous_msg,message_fields))) > float(self.relative_bounds_diff[elem]):
-                raise ValueError(str(elem)+' data jumped')
+        current_time = rospy.Time.now()
+        if self.relative_bounds_time_threshold == float('Inf') or current_time < self.previous_msg_time + rospy.Duration.from_sec(self.relative_bounds_time_threshold):
+            self.previous_msg_time = current_time
+            for elem in self.relative_bounds_diff:
+                message_fields = self.message_field.split('.')+[elem] if self.message_field != "" else [elem]
+                if abs(float(self.getattr_recursive(msg,message_fields)) - float(self.getattr_recursive(self.previous_msg,message_fields))) > float(self.relative_bounds_diff[elem]):
+                    raise ValueError(str(elem)+' data jumped')
         self.previous_msg = msg
+        self.previous_msg_time = current_time
 
     def calibrate(self):
         self.previous_msg = None
@@ -91,7 +97,10 @@ class ConsistencyChecker(threading.Thread):
         if 'standard_values' in config and 'relative_upper_bounds' in config and 'relative_lower_bounds' in config:
             self.checkers.append(RangeChecker(config['name'], config['message_field'], config['standard_values'], config['relative_upper_bounds'], config['relative_lower_bounds']))
         if 'relative_bounds_diff' in config:
-            self.checkers.append(DiffChecker(config['name'], config['message_field'], config['relative_bounds_diff']))
+            relative_bounds_time_threshold = float('Inf')
+            if 'relative_bounds_time_threshold' in config:
+                relative_bounds_time_threshold = config['relative_bounds_time_threshold']
+            self.checkers.append(DiffChecker(config['name'], config['message_field'], config['relative_bounds_diff'], relative_bounds_time_threshold))
 
     # get class object from given name
     def get_class(self, c):
