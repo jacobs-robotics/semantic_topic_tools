@@ -117,7 +117,8 @@ class ConsistencyChecker(threading.Thread):
             for checker in self.checkers:
                 checker.check(msg)
         except ValueError as e:
-            rospy.logwarn("%s consistency checker: check failed - %s on topic %s for input:\n%s", self.config['name'], e.message, self.config['input_topic'], msg)
+            rospy.logwarn("%s consistency checker: check failed - %s", self.config['name'], e.message)
+            rospy.logdebug("on topic %s for input:\n%s",  self.config['input_topic'], msg)
         else:
             self.pub.publish(msg)
             
