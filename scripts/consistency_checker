@@ -68,11 +68,12 @@ class DiffChecker(Checker):
             self.previous_msg = msg
         current_time = rospy.Time.now()
         if self.relative_bounds_time_threshold == float('Inf') or current_time < self.previous_msg_time + rospy.Duration.from_sec(self.relative_bounds_time_threshold):
-            self.previous_msg_time = current_time
+            #self.previous_msg_time = current_time --- makes time window grow and hence this condition is always met ? 
             for elem in self.relative_bounds_diff:
                 message_fields = self.message_field.split('.')+[elem] if self.message_field != "" else [elem]
                 if abs(float(self.getattr_recursive(msg,message_fields)) - float(self.getattr_recursive(self.previous_msg,message_fields))) > float(self.relative_bounds_diff[elem]):
                     raise ValueError(str(elem)+' data jumped')
+                   
         self.previous_msg = msg
         self.previous_msg_time = current_time
 
