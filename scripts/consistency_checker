@@ -95,7 +95,7 @@ class ExpressionChecker(Checker):
             message_fields = self.message_field.split('.')+[elem] if self.message_field != "" else [elem]
             v = self.getattr_recursive(msg,message_fields)
             exec("target_value = %s" % self.expression[elem])
-            if not target_value:
+            if target_value:
                 raise ValueError(str(elem)+' data out of range')
                             
     def calibrate(self):
