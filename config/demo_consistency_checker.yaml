@@ -5,11 +5,15 @@
 # output_topic: topic where to forward checked messages to
 # message_type: ROS type of message to be checked (Python syntax, e.g. "geometry_msgs.msg.Pose")
 # message_field: field name if this is a nested message (e.g. "position" if you want to check geometry_msgs.msg.Pose.position)
+#
+# use one or more of the following modes:
 # standard_values: default values, can be adapted to last received values using "~calibrate" service
 # relative_upper_bounds: maximum values (this will be added to standard_values)
 # relative_lower_bounds: minimum values (this will be subtracted to standard_values)
 # relative_bounds_diff: maximum difference from one message to the next one
 # relative_bounds_time_threshold: if present, disregard jumps outside the relative_bounds_diff which occur after the specified time (in seconds)
+# expression: any Python boolean expression where 'v' is the regarded value, e.g. "v < 0.0" for checking for values < 0 or "any(i > 0.0 for i in v)" for checking for values > 0 in an array
+
 
 configurations:
   -
